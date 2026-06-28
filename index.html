@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10506/10506792.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>舒緩時光</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; max-width: 450px; margin: auto; background: #f4f4f9; }
+        
+        .input-group { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        input, select, textarea { width: 100%; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; margin-top: 10px; display: block; -webkit-appearance: none; }
+        
+        #eventType { text-align: center; text-align-last: center; -moz-text-align-last: center; }
+
+        .med-container { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .checkbox-item { padding: 8px 12px; border: 2px solid #ddd; border-radius: 20px; cursor: pointer; font-size: 15px; color: #555; background: #fff; }
+        .checkbox-item.selected { border-color: #007bff; background-color: #e7f1ff; color: #007bff; font-weight: bold; }
+
+        #logList { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        
+        .event-card { background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; align-items: center; }
+        
+        .date-col { width: 85px; flex-shrink: 0; text-align: center; border-right: 1px solid #eee; display: flex; flex-direction: column; justify-content: center; }
+        .big-date { font-size: 1.3em; font-weight: bold; color: #007bff; display: block; }
+        .week-day { font-size: 0.85em; color: #888; }
+        
+        .logs-col { flex-grow: 1; padding-left: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .log-item { display: flex; flex-direction: column; }
+        .log-header { font-weight: bold; color: #333; display: flex; justify-content: space-between; align-items: center; }
+        .log-detail { color: #666; font-size: 0.9em; margin-top: 2px; word-break: break-all; line-height: 1.4; }
+        
+        /* 年份顯示樣式 - 兩側加線 */
+        .year-footer { 
+            text-align: center; 
+            color: #bbb; 
+            font-size: 0.9em; 
+            margin: -5px 0 15px 0; 
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .year-footer::before, .year-footer::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: #ddd;
+            margin: 0 10px;
+            max-width: 30px;
+        }
+        
+        .del-btn { color: #ff4d4f; font-size: 14px; cursor: pointer; border: none; background: none; }
+        
+        .footer-note { text-align: center; font-size: 12px; color: #aaa; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h3>病程紀錄</h3>
+    <div class="input-group">
+        <input type="datetime-local" id="logTime">
+        <select id="eventType" onchange="updateUI()">
+            <option value="開始恐慌">開始恐慌</option>
+            <option value="服藥💊">服藥💊</option>
+            <option value="恐慌結束">恐慌結束</option>
+        </select>
+        <div id="section-start" class="checkbox-group">
+            <div class="checkbox-item" onclick="this.classList.toggle('selected')">手心冒汗</div>
+            <div class="checkbox-item" onclick="this.classList.toggle('selected')">胸悶</div>
+            <div class="checkbox-item" onclick="this.classList.toggle('selected')">想吐</div>
+            <div class="checkbox-item" onclick="this.classList.toggle('selected')">焦慮感</div>
+            <div class="checkbox-item" onclick="this.classList.toggle('selected')">腹瀉</div>
+            <div class="checkbox-item" onclick="this.classList.toggle('selected')">頭暈</div>
+            <div class="checkbox-item" onclick="this.classList.toggle('selected')">發冷</div>
+            <div class="checkbox-item" onclick="this.classList.toggle('selected')">忽冷忽熱</div>
+            <input type="text" id="otherSymptom" placeholder="其他症狀...">
+        </div>
+        <div id="section-med" class="med-container" style="display:none;">
+            <input type="text" id="medName" value="讚安諾">
+            <input type="number" id="medAmount" value="0.5" step="0.1">
+            <span>mg</span>
+        </div>
+        <textarea id="note" style="display:none;" placeholder="備註..."></textarea>
+        <button onclick="saveLog()" style="width:100%; margin-top:15px; padding:12px; background:#007bff; color:white; border:none; border-radius:8px; font-size:16px;">儲存紀錄</button>
+    </div>
+
+    <div id="logList"></div>
+    <button style="width:100%; padding:10px; background:#eee; border:none; border-radius:8px; color:#666;" onclick="exportData()">匯出備份</button>
+    
+    <div class="footer-note">本網頁 icon 由 FLATICON 提供</div>
+
+    <script>
+        document.getElementById('logTime').value = new Date().toISOString().slice(0, 16);
+        function updateUI() {
+            let type = document.getElementById('eventType').value;
+            document.getElementById('section-start').style.display = (type === '開始恐慌') ? 'flex' : 'none';
+            document.getElementById('section-med').style.display = (type === '服藥💊') ? 'flex' : 'none';
+            document.getElementById('note').style.display = (type === '恐慌結束') ? 'block' : 'none';
+        }
+        function saveLog() {
+            let type = document.getElementById('eventType').value;
+            let selectedSymptoms = Array.from(document.querySelectorAll('.checkbox-item.selected')).map(i => i.innerText);
+            let other = document.getElementById('otherSymptom').value.trim();
+            if (other) selectedSymptoms.push(other);
+            
+            let note = type === '開始恐慌' ? selectedSymptoms.join('、') : 
+                       type === '服藥💊' ? `${document.getElementById('medName').value} ${document.getElementById('medAmount').value}mg` : document.getElementById('note').value;
+            
+            let logs = JSON.parse(localStorage.getItem('panicLogs') || '[]');
+            logs.push({ id: Date.now(), time: document.getElementById('logTime').value, type, note });
+            localStorage.setItem('panicLogs', JSON.stringify(logs));
+            
+            document.querySelectorAll('.checkbox-item').forEach(i => i.classList.remove('selected'));
+            document.getElementById('otherSymptom').value = '';
+            document.getElementById('note').value = '';
+            renderLogs();
+        }
+        function deleteItem(id) {
+            if(!confirm('確認刪除？')) return;
+            localStorage.setItem('panicLogs', JSON.stringify(JSON.parse(localStorage.getItem('panicLogs')).filter(l => l.id !== id)));
+            renderLogs();
+        }
+        function renderLogs() {
+            let logs = JSON.parse(localStorage.getItem('panicLogs') || '[]');
+            let logList = document.getElementById('logList'); logList.innerHTML = '';
+            
+            const groups = logs.reduce((acc, log) => {
+                const date = new Date(log.time).toDateString();
+                if (!acc[date]) acc[date] = [];
+                acc[date].push(log);
+                return acc;
+            }, {});
+
+            const sortedDates = Object.keys(groups).sort((a,b) => new Date(b) - new Date(a));
+            
+            sortedDates.forEach((dateStr, index) => {
+                let d = new Date(dateStr);
+                let dateKey = `${d.getMonth()+1}/${d.getDate()}`;
+                let week = ['日','一','二','三','四','五','六'][d.getDay()];
+                let currentYear = d.getFullYear();
+                
+                let html = `<div class="event-card">
+                    <div class="date-col"><span class="big-date">${dateKey}</span><span class="week-day">${week}</span></div>
+                    <div class="logs-col">`;
+                
+                groups[dateStr].sort((a,b) => new Date(a.time) - new Date(b.time)).forEach(l => {
+                    let time = new Date(l.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    html += `<div class="log-item">
+                        <span class="log-header">${time} ${l.type} <button class="del-btn" onclick="deleteItem(${l.id})">✕</button></span>
+                        ${l.note ? `<div class="log-detail">${l.note}</div>` : ''}
+                    </div>`;
+                });
+                
+                html += `</div></div>`;
+                logList.innerHTML += html;
+
+                const nextDate = sortedDates[index + 1];
+                const nextYear = nextDate ? new Date(nextDate).getFullYear() : null;
+                
+                if (currentYear !== nextYear) {
+                    logList.innerHTML += `<div class="year-footer">${currentYear}</div>`;
+                }
+            });
+        }
+        renderLogs();
+        function exportData() {
+            let a = document.createElement('a'); 
+            a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(localStorage.getItem('panicLogs')); 
+            a.download = 'logs.json'; a.click();
+        }
+    </script>
+</body>
+</html>
